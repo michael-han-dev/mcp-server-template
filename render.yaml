@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: fastmcp-server
+    name: obsidian-mcp-server
     runtime: python
     buildCommand: pip install -r requirements.txt
     startCommand: python src/server.py
@@ -9,3 +9,7 @@ services:
     envVars:
       - key: ENVIRONMENT
         value: production
+      - key: OBSIDIAN_VAULT_PATH
+        value: /tmp/obsidian-vault
+      - key: OBSIDIAN_GIT_BRANCH
+        value: main
