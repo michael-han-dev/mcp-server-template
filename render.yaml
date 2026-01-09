@@ -17,3 +17,5 @@ services:
         value: main
       - key: OBSIDIAN_AUTO_SYNC
         value: true
+      - key: LOG_LEVEL
+        value: DEBUG

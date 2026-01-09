@@ -11,7 +11,6 @@ from config import ObsidianConfig
 from git_manager import GitManager
 from vault_manager import VaultManager, PathSecurityError
 
-# Set log level from env (DEBUG for verbose git output)
 log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(
     level=getattr(logging, log_level, logging.INFO),
@@ -329,29 +328,18 @@ def write_attachment(path: str, content_base64: str) -> dict:
         return {"error": f"Failed to write attachment: {e}", "success": False}
 
 
-@mcp.tool(description="Sync vault with git. Actions: 'pull' (get latest), 'push' (push changes), 'sync' (pull then push), 'status', 'debug'.")
+@mcp.tool(description="Sync vault with git: pull, push, sync (pull+push), status, debug")
 def sync_vault(action: str = "sync") -> dict:
-    """
-    Git sync operations with detailed status reporting.
-    - pull: Get latest changes from remote
-    - push: Push local changes to remote
-    - sync: Pull then push (recommended)
-    - status: Get basic sync status
-    - debug: Get detailed git debugging info
-    """
     try:
         if not git_manager:
             return {"error": "Git not configured", "success": False}
 
         if action == "pull":
-            result = git_manager.pull()
-            return result
+            return git_manager.pull()
         elif action == "push":
-            result = git_manager.push("Manual sync from MCP")
-            return result
+            return git_manager.push("Manual sync from Poke")
         elif action == "sync":
-            result = git_manager.sync("Manual sync from MCP")
-            return result
+            return git_manager.sync("Manual sync from Poke")
         elif action == "status":
             return {
                 "success": True,
@@ -361,12 +349,11 @@ def sync_vault(action: str = "sync") -> dict:
                 "branch": git_manager.branch,
             }
         elif action == "debug":
-            # Full debug info
             return git_manager.get_status()
         else:
-            return {"error": f"Unknown action: {action}. Use: pull, push, sync, status, debug", "success": False}
+            return {"error": f"Unknown action: {action}", "success": False}
     except Exception as e:
-        logger.exception("Sync failed with exception")
+        logger.exception("Sync failed")
         return {"error": f"Sync failed: {e}", "success": False}
 
 
@@ -386,13 +373,4 @@ def get_server_info() -> dict:
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
-    host = "0.0.0.0"
-
-    print(f"Starting Obsidian MCP server on {host}:{port}")
-
-    mcp.run(
-        transport="http",
-        host=host,
-        port=port,
-        stateless_http=True,
-    )
+    mcp.run(transport="http", host="0.0.0.0", port=port, stateless_http=True)
