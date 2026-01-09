@@ -9,7 +9,11 @@ services:
     envVars:
       - key: ENVIRONMENT
         value: production
+      - key: OBSIDIAN_GIT_REPO_URL
+        value: https://github.com/michael-han-dev/obsidianSync
       - key: OBSIDIAN_VAULT_PATH
         value: /tmp/obsidian-vault
       - key: OBSIDIAN_GIT_BRANCH
         value: main
+      - key: OBSIDIAN_AUTO_SYNC
+        value: true
