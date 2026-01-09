@@ -11,7 +11,12 @@ from config import ObsidianConfig
 from git_manager import GitManager
 from vault_manager import VaultManager, PathSecurityError
 
-logging.basicConfig(level=logging.INFO)
+# Set log level from env (DEBUG for verbose git output)
+log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(
+    level=getattr(logging, log_level, logging.INFO),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 mcp = FastMCP("Obsidian Vault MCP Server")
@@ -27,8 +32,9 @@ try:
         branch=config.git_branch,
         token=config.git_token,
     )
-    if not git_manager.clone():
-        logger.error("Failed to clone vault")
+    clone_result = git_manager.clone()
+    if not clone_result.get("success"):
+        logger.error(f"Failed to clone vault: {clone_result}")
         sys.exit(1)
     logger.info(f"Vault initialized at {config.vault_path}")
 except ValueError as e:
@@ -85,7 +91,7 @@ def create_note(path: str, content: str, frontmatter: dict = None) -> dict:
         full_path.write_text(final_content, encoding="utf-8")
 
         if config.auto_sync:
-            git_manager.push(f"Created: {path}")
+            git_manager.sync(f"Created: {path}")
 
         return {"success": True, "path": path}
     except PathSecurityError as e:
@@ -120,7 +126,7 @@ def update_note(path: str, content: str = None, frontmatter: dict = None, append
         full_path.write_text(final_content, encoding="utf-8")
 
         if config.auto_sync:
-            git_manager.push(f"Updated: {path}")
+            git_manager.sync(f"Updated: {path}")
 
         return {"success": True, "path": path}
     except PathSecurityError as e:
@@ -143,7 +149,7 @@ def delete_note(path: str) -> dict:
         full_path.unlink()
 
         if config.auto_sync:
-            git_manager.push(f"Deleted: {path}")
+            git_manager.sync(f"Deleted: {path}")
 
         return {"success": True, "path": path}
     except PathSecurityError as e:
@@ -314,7 +320,7 @@ def write_attachment(path: str, content_base64: str) -> dict:
         full_path.write_bytes(content)
 
         if config.auto_sync:
-            git_manager.push(f"Added attachment: {path}")
+            git_manager.sync(f"Added attachment: {path}")
 
         return {"success": True, "path": path, "size_bytes": len(content)}
     except PathSecurityError as e:
@@ -323,18 +329,29 @@ def write_attachment(path: str, content_base64: str) -> dict:
         return {"error": f"Failed to write attachment: {e}", "success": False}
 
 
-@mcp.tool(description="Sync vault with git. Actions: 'pull', 'push', 'status'.")
-def sync_vault(action: str = "pull") -> dict:
+@mcp.tool(description="Sync vault with git. Actions: 'pull' (get latest), 'push' (push changes), 'sync' (pull then push), 'status', 'debug'.")
+def sync_vault(action: str = "sync") -> dict:
+    """
+    Git sync operations with detailed status reporting.
+    - pull: Get latest changes from remote
+    - push: Push local changes to remote
+    - sync: Pull then push (recommended)
+    - status: Get basic sync status
+    - debug: Get detailed git debugging info
+    """
     try:
         if not git_manager:
             return {"error": "Git not configured", "success": False}
 
         if action == "pull":
-            success = git_manager.pull()
-            return {"success": success, "action": "pull"}
+            result = git_manager.pull()
+            return result
         elif action == "push":
-            success = git_manager.push("Manual sync from MCP")
-            return {"success": success, "action": "push"}
+            result = git_manager.push("Manual sync from MCP")
+            return result
+        elif action == "sync":
+            result = git_manager.sync("Manual sync from MCP")
+            return result
         elif action == "status":
             return {
                 "success": True,
@@ -343,9 +360,13 @@ def sync_vault(action: str = "pull") -> dict:
                 "vault_path": str(git_manager.local_path),
                 "branch": git_manager.branch,
             }
+        elif action == "debug":
+            # Full debug info
+            return git_manager.get_status()
         else:
-            return {"error": f"Unknown action: {action}", "success": False}
+            return {"error": f"Unknown action: {action}. Use: pull, push, sync, status, debug", "success": False}
     except Exception as e:
+        logger.exception("Sync failed with exception")
         return {"error": f"Sync failed: {e}", "success": False}
 
 
